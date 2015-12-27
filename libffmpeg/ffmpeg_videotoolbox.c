@@ -27,7 +27,7 @@
 #  include "libavcodec/videotoolbox.h"
 #endif
 #include "libavutil/imgutils.h"
-#include "ffmpeg.h"
+#include "ffmpeg_private.h"
 
 typedef struct VTContext {
     AVFrame *tmp_frame;

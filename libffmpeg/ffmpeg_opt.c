@@ -20,7 +20,7 @@
 
 #include <stdint.h>
 
-#include "ffmpeg.h"
+#include "ffmpeg_private.h"
 #include "cmdutils.h"
 
 #include "libavformat/avformat.h"

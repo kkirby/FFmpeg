@@ -23,7 +23,7 @@
 
 #include <X11/Xlib.h>
 
-#include "ffmpeg.h"
+#include "ffmpeg_private.h"
 
 #include "libavcodec/vdpau.h"
 

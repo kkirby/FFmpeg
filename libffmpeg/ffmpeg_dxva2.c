@@ -30,7 +30,7 @@
 #include <d3d9.h>
 #include <dxva2api.h>
 
-#include "ffmpeg.h"
+#include "ffmpeg_private.h"
 
 #include "libavcodec/dxva2.h"
 
