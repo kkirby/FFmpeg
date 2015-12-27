@@ -48,6 +48,9 @@
 
 #include "libswresample/swresample.h"
 
+#include "ffmpeg.h"
+#include "exceptions.h"
+
 #define VSYNC_AUTO       -1
 #define VSYNC_PASSTHROUGH 0
 #define VSYNC_CFR         1
@@ -551,7 +554,7 @@ int ist_in_filtergraph(FilterGraph *fg, InputStream *ist);
 FilterGraph *init_simple_filtergraph(InputStream *ist, OutputStream *ost);
 int init_complex_filtergraph(FilterGraph *fg);
 
-int ffmpeg_parse_options(int argc, char **argv);
+int ffmpeg_parse_options(int argc, const char **argv);
 
 int vdpau_init(AVCodecContext *s);
 int dxva2_init(AVCodecContext *s);

@@ -110,13 +110,6 @@ Configuration options:
   --enable-incompatible-libav-abi enable incompatible Libav fork ABI [no]
   --enable-raise-major     increase major version numbers in sonames [no]
 
-Program options:
-  --disable-programs       do not build command line programs
-  --disable-ffmpeg         disable ffmpeg build
-  --disable-ffplay         disable ffplay build
-  --disable-ffprobe        disable ffprobe build
-  --disable-ffserver       disable ffserver build
-
 Documentation options:
   --disable-doc            do not build documentation
   --disable-htmlpages      do not build HTML documentation pages
@@ -133,6 +126,7 @@ Component options:
   --disable-swscale        disable libswscale build
   --disable-postproc       disable libpostproc build
   --disable-avfilter       disable libavfilter build
+  --disable-ffmpeg         disable libffmpeg build
   --enable-avresample      enable libavresample build [no]
   --disable-pthreads       disable pthreads [autodetect]
   --disable-w32threads     disable Win32 threads [autodetect]
@@ -1479,6 +1473,7 @@ LIBRARY_LIST="
     postproc
     swresample
     swscale
+	ffmpeg
 "
 
 LICENSE_LIST="
@@ -1488,10 +1483,6 @@ LICENSE_LIST="
 "
 
 PROGRAM_LIST="
-    ffplay
-    ffprobe
-    ffserver
-    ffmpeg
 "
 
 SUBSYSTEM_LIST="
@@ -2830,18 +2821,10 @@ avresample_deps="avutil"
 postproc_deps="avutil gpl"
 swresample_deps="avutil"
 swscale_deps="avutil"
-
-# programs
 ffmpeg_deps="avcodec avfilter avformat swresample"
 ffmpeg_select="aformat_filter anull_filter atrim_filter format_filter
                null_filter
                setpts_filter trim_filter"
-ffplay_deps="avcodec avformat swscale swresample sdl"
-ffplay_libs='$sdl_libs'
-ffplay_select="rdft crop_filter transpose_filter hflip_filter vflip_filter rotate_filter"
-ffprobe_deps="avcodec avformat"
-ffserver_deps="avformat fork sarestart"
-ffserver_select="ffm_muxer rtp_protocol rtsp_demuxer"
 
 # documentation
 podpages_deps="perl"
@@ -2930,10 +2913,10 @@ SLIBPREF="lib"
 SLIBSUF=".so"
 SLIBNAME='$(SLIBPREF)$(FULLNAME)$(SLIBSUF)'
 SLIBNAME_WITH_VERSION='$(SLIBNAME).$(LIBVERSION)'
-SLIBNAME_WITH_MAJOR='$(SLIBNAME).$(LIBMAJOR)'
+SLIBNAME_WITH_MAJOR='$(SLIBPREF)$(FULLNAME)-$(LIBMAJOR)$(SLIBSUF)'
 LIB_INSTALL_EXTRA_CMD='$$(RANLIB) "$(LIBDIR)/$(LIBNAME)"'
-SLIB_INSTALL_NAME='$(SLIBNAME_WITH_VERSION)'
-SLIB_INSTALL_LINKS='$(SLIBNAME_WITH_MAJOR) $(SLIBNAME)'
+SLIB_INSTALL_NAME='$(SLIBNAME_WITH_MAJOR)'
+SLIB_INSTALL_LINKS='$(SLIBNAME)'
 
 asflags_filter=echo
 cflags_filter=echo
@@ -5554,7 +5537,7 @@ check_disable_warning -Wno-pointer-sign
 
 # add some linker flags
 check_ldflags -Wl,--warn-common
-check_ldflags -Wl,-rpath-link=libpostproc:libswresample:libswscale:libavfilter:libavdevice:libavformat:libavcodec:libavutil:libavresample
+check_ldflags -Wl,-rpath-link=libpostproc:libswresample:libswscale:libavfilter:libavdevice:libavformat:libavcodec:libavutil:libavresample:libffmpeg
 enabled rpath && add_ldexeflags -Wl,-rpath,$libdir
 enabled rpath && add_ldlibflags -Wl,-rpath,$libdir
 test_ldflags -Wl,-Bsymbolic && append SHFLAGS -Wl,-Bsymbolic
@@ -6266,3 +6249,4 @@ pkgconfig_generate libpostproc   "FFmpeg postprocessing library"        "$LIBPOS
 pkgconfig_generate libavresample "Libav audio resampling library"       "$LIBAVRESAMPLE_VERSION" "$LIBM"
 pkgconfig_generate libswscale    "FFmpeg image rescaling library"       "$LIBSWSCALE_VERSION"    "$LIBM"
 pkgconfig_generate libswresample "FFmpeg audio resampling library"      "$LIBSWRESAMPLE_VERSION" "$LIBM $LIBSOXR"
+pkgconfig_generate libffmpeg "FFmpeg executable wrapper"      "$LIBFFMPEG_VERSION" "$LIBM"

@@ -246,9 +246,9 @@ int opt_opencl_bench(void *optctx, const char *opt, const char *arg)
         }
     }
     qsort(devices, count, sizeof(OpenCLDeviceBenchmark), compare_ocl_device_desc);
-    fprintf(stderr, "platform_idx\tdevice_idx\tdevice_name\truntime\n");
+    fprintf(stderr, "platform_idx    device_idx    device_name    runtime\n");
     for (i = 0; i < count; i++)
-        fprintf(stdout, "%d\t%d\t%s\t%"PRId64"\n",
+        fprintf(stdout, "%d    %d    %s    %"PRId64"\n",
                 devices[i].platform_idx, devices[i].device_idx,
                 devices[i].device_name, devices[i].runtime);
 

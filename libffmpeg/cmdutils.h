@@ -23,12 +23,14 @@
 #define FFMPEG_CMDUTILS_H
 
 #include <stdint.h>
+#include <stdbool.h>
 
 #include "config.h"
 #include "libavcodec/avcodec.h"
 #include "libavfilter/avfilter.h"
 #include "libavformat/avformat.h"
 #include "libswscale/swscale.h"
+#include "exceptions.h"
 
 #ifdef _WIN32
 #undef main /* We don't want SDL to override our main() */
@@ -59,7 +61,7 @@ void register_exit(void (*cb)(int ret));
 /**
  * Wraps exit with a program-specific cleanup routine.
  */
-void exit_program(int ret) av_noreturn;
+void exit_program(int ret, const char *fmt, ...);
 
 /**
  * Initialize the cmdutils option system, in particular
@@ -230,7 +232,7 @@ int show_help(void *optctx, const char *opt, const char *arg);
  * argument without a leading option name flag. NULL if such arguments do
  * not have to be processed.
  */
-void parse_options(void *optctx, int argc, char **argv, const OptionDef *options,
+void parse_options(void *optctx, int argc, const char **argv, const OptionDef *options,
                    void (* parse_arg_function)(void *optctx, const char*));
 
 /**
@@ -327,7 +329,7 @@ int parse_optgroup(void *optctx, OptionGroup *g);
  * OptionGroupList in OptionParseContext.groups. The order of group lists is the
  * same as the order of group definitions.
  */
-int split_commandline(OptionParseContext *octx, int argc, char *argv[],
+int split_commandline(OptionParseContext *octx, int argc, const char *argv[],
                       const OptionDef *options,
                       const OptionGroupDef *groups, int nb_groups);
 
@@ -339,12 +341,12 @@ void uninit_parse_context(OptionParseContext *octx);
 /**
  * Find the '-loglevel' option in the command line args and apply it.
  */
-void parse_loglevel(int argc, char **argv, const OptionDef *options);
+void parse_loglevel(int argc, const char **argv, const OptionDef *options);
 
 /**
  * Return index of option opt in argv or 0 if not found.
  */
-int locate_option(int argc, char **argv, const OptionDef *options,
+int locate_option(int argc, const char **argv, const OptionDef *options,
                   const char *optname);
 
 /**
@@ -398,6 +400,7 @@ AVDictionary **setup_find_stream_info_opts(AVFormatContext *s,
  *
  * @see av_strerror()
  */
+void print_error_and_exit(const char *filename, int err,bool doexit,int code);
 void print_error(const char *filename, int err);
 
 /**
@@ -405,7 +408,7 @@ void print_error(const char *filename, int err);
  * current version of the repository and of the libav* libraries used by
  * the program.
  */
-void show_banner(int argc, char **argv, const OptionDef *options);
+void show_banner(int argc, const char **argv, const OptionDef *options);
 
 /**
  * Print the version of the program to stdout. The version message
@@ -522,12 +525,6 @@ int show_sample_fmts(void *optctx, const char *opt, const char *arg);
  * by the program.
  */
 int show_colors(void *optctx, const char *opt, const char *arg);
-
-/**
- * Return a positive value if a line read from standard input
- * starts with [yY], otherwise return 0.
- */
-int read_yesno(void);
 
 /**
  * Get a file corresponding to a preset file.

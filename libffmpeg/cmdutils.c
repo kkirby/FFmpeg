@@ -21,6 +21,7 @@
 
 #include <string.h>
 #include <stdint.h>
+#include <stdarg.h>
 #include <stdlib.h>
 #include <errno.h>
 #include <math.h>
@@ -85,11 +86,6 @@ void uninit_opts(void)
     av_dict_free(&resample_opts);
 }
 
-void log_callback_help(void *ptr, int level, const char *fmt, va_list vl)
-{
-    vfprintf(stdout, fmt, vl);
-}
-
 static void log_callback_report(void *ptr, int level, const char *fmt, va_list vl)
 {
     va_list vl2;
@@ -113,12 +109,22 @@ void register_exit(void (*cb)(int ret))
     program_exit = cb;
 }
 
-void exit_program(int ret)
+void exit_program(int ret, const char *fmt, ...)
 {
+	va_list vl;
+	char buffer[E4C_EXCEPTION_MESSAGE_SIZE];
+	va_start(vl, fmt);
+	vsnprintf(buffer,E4C_EXCEPTION_MESSAGE_SIZE,fmt,vl);
+	va_end(vl);
     if (program_exit)
         program_exit(ret);
-
-    exit(ret);
+	errno = ret;
+	if(ret != 0){
+		E4C_THROW(ExitedAbnormally,buffer);
+	}
+	else {
+    	E4C_THROW(ExitedNormally,buffer);
+	}
 }
 
 double parse_number_or_die(const char *context, const char *numstr, int type,
@@ -138,7 +144,7 @@ double parse_number_or_die(const char *context, const char *numstr, int type,
     else
         return d;
     av_log(NULL, AV_LOG_FATAL, error, context, numstr, min, max);
-    exit_program(1);
+    exit_program(1, error, context, numstr, min, max);
     return 0;
 }
 
@@ -149,7 +155,8 @@ int64_t parse_time_or_die(const char *context, const char *timestr,
     if (av_parse_time(&us, timestr, is_duration) < 0) {
         av_log(NULL, AV_LOG_FATAL, "Invalid %s specification for %s: %s\n",
                is_duration ? "duration" : "date", context, timestr);
-        exit_program(1);
+        exit_program(1,"Invalid %s specification for %s: %s\n",
+               is_duration ? "duration" : "date", context, timestr);
     }
     return us;
 }
@@ -225,7 +232,7 @@ static int win32_argc = 0;
  * @param argc_ptr Arguments number (including executable)
  * @param argv_ptr Arguments list.
  */
-static void prepare_app_arguments(int *argc_ptr, char ***argv_ptr)
+static void prepare_app_arguments(int *argc_ptr, const char ***argv_ptr)
 {
     char *argstr_flat;
     wchar_t **argv_w;
@@ -267,7 +274,7 @@ static void prepare_app_arguments(int *argc_ptr, char ***argv_ptr)
     *argv_ptr = win32_argv_utf8;
 }
 #else
-static inline void prepare_app_arguments(int *argc_ptr, char ***argv_ptr)
+static inline void prepare_app_arguments(int *argc_ptr, const char ***argv_ptr)
 {
     /* nothing to do */
 }
@@ -323,7 +330,7 @@ static int write_option(void *optctx, const OptionDef *po, const char *opt,
         }
     }
     if (po->flags & OPT_EXIT)
-        exit_program(0);
+        exit_program(0,"");
 
     return 0;
 }
@@ -361,7 +368,7 @@ int parse_option(void *optctx, const char *opt, const char *arg,
     return !!(po->flags & HAS_ARG);
 }
 
-void parse_options(void *optctx, int argc, char **argv, const OptionDef *options,
+void parse_options(void *optctx, int argc, const char **argv, const OptionDef *options,
                    void (*parse_arg_function)(void *, const char*))
 {
     const char *opt;
@@ -383,7 +390,7 @@ void parse_options(void *optctx, int argc, char **argv, const OptionDef *options
             opt++;
 
             if ((ret = parse_option(optctx, opt, argv[optindex], options)) < 0)
-                exit_program(1);
+                exit_program(2, "Parse option failed?");
             optindex += ret;
         } else {
             if (parse_arg_function)
@@ -425,7 +432,7 @@ int parse_optgroup(void *optctx, OptionGroup *g)
     return 0;
 }
 
-int locate_option(int argc, char **argv, const OptionDef *options,
+int locate_option(int argc, const char **argv, const OptionDef *options,
                   const char *optname)
 {
     const OptionDef *po;
@@ -484,7 +491,7 @@ static void check_options(const OptionDef *po)
     }
 }
 
-void parse_loglevel(int argc, char **argv, const OptionDef *options)
+void parse_loglevel(int argc, const char **argv, const OptionDef *options)
 {
     int idx = locate_option(argc, argv, options, "loglevel");
     const char *env;
@@ -691,7 +698,7 @@ static void init_parse_context(OptionParseContext *octx,
     octx->nb_groups = nb_groups;
     octx->groups    = av_mallocz_array(octx->nb_groups, sizeof(*octx->groups));
     if (!octx->groups)
-        exit_program(1);
+        exit_program(2, "No octx->groups");
 
     for (i = 0; i < octx->nb_groups; i++)
         octx->groups[i].group_def = &groups[i];
@@ -728,7 +735,7 @@ void uninit_parse_context(OptionParseContext *octx)
     uninit_opts();
 }
 
-int split_commandline(OptionParseContext *octx, int argc, char *argv[],
+int split_commandline(OptionParseContext *octx, int argc, const char *argv[],
                       const OptionDef *options,
                       const OptionGroupDef *groups, int nb_groups)
 {
@@ -890,7 +897,7 @@ int opt_loglevel(void *optctx, const char *opt, const char *arg)
                "Possible levels are numbers or:\n", arg);
         for (i = 0; i < FF_ARRAY_ELEMS(log_levels); i++)
             av_log(NULL, AV_LOG_FATAL, "\"%s\"\n", log_levels[i].name);
-        exit_program(1);
+        exit_program(1, "Invalid loglevel \"%s\".",arg);
     }
     av_log_set_level(level);
     return 0;
@@ -958,7 +965,7 @@ static int init_report(const char *env)
             report_file_level = strtol(val, &tail, 10);
             if (*tail) {
                 av_log(NULL, AV_LOG_FATAL, "Invalid report file level\n");
-                exit_program(1);
+                exit_program(2, "Invalid report file level");
             }
         } else {
             av_log(NULL, AV_LOG_ERROR, "Unknown key '%s' in FFREPORT\n", key);
@@ -1008,7 +1015,7 @@ int opt_max_alloc(void *optctx, const char *opt, const char *arg)
     max = strtol(arg, &tail, 10);
     if (*tail) {
         av_log(NULL, AV_LOG_FATAL, "Invalid max_alloc \"%s\".\n", arg);
-        exit_program(1);
+        exit_program(2, "Invalid max_alloc \"%s\".",arg);
     }
     av_max_alloc(max);
     return 0;
@@ -1027,7 +1034,7 @@ int opt_timelimit(void *optctx, const char *opt, const char *arg)
     return 0;
 }
 
-void print_error(const char *filename, int err)
+void print_error_and_exit(const char *filename, int err,bool doexit,int code)
 {
     char errbuf[128];
     const char *errbuf_ptr = errbuf;
@@ -1035,7 +1042,16 @@ void print_error(const char *filename, int err)
     if (av_strerror(err, errbuf, sizeof(errbuf)) < 0)
         errbuf_ptr = strerror(AVUNERROR(err));
     av_log(NULL, AV_LOG_ERROR, "%s: %s\n", filename, errbuf_ptr);
+	if(doexit){
+		exit_program(code, "%s: %s", filename, errbuf_ptr);
+	}
 }
+
+void print_error(const char *filename, int err)
+{
+    print_error_and_exit(filename,err,false,0);
+}
+
 
 static int warned_cfg = 0;
 
@@ -1125,7 +1141,7 @@ static void print_buildconf(int flags, int level)
     }
 }
 
-void show_banner(int argc, char **argv, const OptionDef *options)
+void show_banner(int argc, const char **argv, const OptionDef *options)
 {
     int idx = locate_option(argc, argv, options, "version");
     if (hide_banner || idx)
@@ -1138,7 +1154,6 @@ void show_banner(int argc, char **argv, const OptionDef *options)
 
 int show_version(void *optctx, const char *opt, const char *arg)
 {
-    av_log_set_callback(log_callback_help);
     print_program_info (SHOW_COPYRIGHT, AV_LOG_INFO);
     print_all_libs_info(SHOW_VERSION, AV_LOG_INFO);
 
@@ -1147,7 +1162,6 @@ int show_version(void *optctx, const char *opt, const char *arg)
 
 int show_buildconf(void *optctx, const char *opt, const char *arg)
 {
-    av_log_set_callback(log_callback_help);
     print_buildconf      (INDENT|0, AV_LOG_INFO);
 
     return 0;
@@ -1401,7 +1415,7 @@ static unsigned get_codecs_sorted(const AVCodecDescriptor ***rcodecs)
         nb_codecs++;
     if (!(codecs = av_calloc(nb_codecs, sizeof(*codecs)))) {
         av_log(NULL, AV_LOG_ERROR, "Out of memory\n");
-        exit_program(1);
+        exit_program(2, "Out of memory");
     }
     desc = NULL;
     while ((desc = avcodec_descriptor_next(desc)))
@@ -1831,7 +1845,6 @@ static void show_help_filter(const char *name)
 int show_help(void *optctx, const char *opt, const char *arg)
 {
     char *topic, *par;
-    av_log_set_callback(log_callback_help);
 
     topic = av_strdup(arg ? arg : "");
     if (!topic)
@@ -1860,17 +1873,6 @@ int show_help(void *optctx, const char *opt, const char *arg)
 
     av_freep(&topic);
     return 0;
-}
-
-int read_yesno(void)
-{
-    int c = getchar();
-    int yesno = (av_toupper(c) == 'Y');
-
-    while (c != '\n' && c != EOF)
-        c = getchar();
-
-    return yesno;
 }
 
 FILE *get_preset_file(char *filename, size_t filename_size,
@@ -1968,7 +1970,7 @@ AVDictionary *filter_codec_opts(AVDictionary *opts, enum AVCodecID codec_id,
             switch (check_stream_specifier(s, st, p + 1)) {
             case  1: *p = 0; break;
             case  0:         continue;
-            default:         exit_program(1);
+            default:         exit_program(2, "Invalid stream specifier.");
             }
 
         if (av_opt_find(&cc, t->key, NULL, flags, AV_OPT_SEARCH_FAKE_OBJ) ||
@@ -2012,13 +2014,13 @@ void *grow_array(void *array, int elem_size, int *size, int new_size)
 {
     if (new_size >= INT_MAX / elem_size) {
         av_log(NULL, AV_LOG_ERROR, "Array too big.\n");
-        exit_program(1);
+        exit_program(2, "Array too big.");
     }
     if (*size < new_size) {
         uint8_t *tmp = av_realloc_array(array, new_size, elem_size);
         if (!tmp) {
             av_log(NULL, AV_LOG_ERROR, "Could not alloc buffer.\n");
-            exit_program(1);
+            exit_program(2, "Could not alloc buffer.");
         }
         memset(tmp + *size*elem_size, 0, (new_size-*size) * elem_size);
         *size = new_size;
